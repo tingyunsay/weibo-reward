@@ -74,6 +74,23 @@ def weibo_login(login_url,name,pwd):
     print cookie
     return cookie
 
+headers_follow = {
+    "Accept":"*/*,",
+    "Accept-Encoding":"gzip, deflate, br",
+    "Accept-Language":"zh-CN,zh;q=0.8",
+    "Cache-Control":"no-cache",
+    "Connection":"keep-alive",
+    "Content-Type":"application/x-www-form-urlencoded",
+    #"Cookie":"SINAGLOBAL=6147746042469.108.1500348166534; un=13520235998; UOR=cache.baiducontent.com,widget.weibo.com,login.sina.com.cn; YF-V5-G0=e6f12d86f222067e0079d729f0a701bc; YF-Ugrow-G0=57484c7c1ded49566c905773d5d00f82; WBtopGlobal_register_version=49306022eb5a5f0b; login_sid_t=a94d34bf7e7fc3a10174c50791838383; cross_origin_proto=SSL; _s_tentry=weibo.com; Apache=3176586107803.552.1515847518635; ULV=1515847518642:22:5:5:3176586107803.552.1515847518635:1515781973292; SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9WFFPbxvJMRTSVKvEwZI_yRF5JpX5K2hUgL.Foq7SoMpShefe0n2dJLoIp-LxK-L1K5LB-eLxKBLB.2L1K8kPfYt; ALF=1547383543; SSOLoginState=1515847544; SCF=AmYmQb5ycfnmz1Y0f1jZcZ7EQJiDARpRRPOYTnZBISYT-4-qFIRkh43bYxZwzHA1_gkS4bvjpWH9Z4sv8xy51PE.; SUB=_2A253XY_lDeRhGeBO7VUQ9C3JyDSIHXVUKuYtrDV8PUNbmtANLWbdkW9NRcigXVwBi9C3aciHbnB8Q3rzmBNUtZbD; SUHB=0ElqyoFlimP8mn; wvr=6; YF-Page-G0=59104684d5296c124160a1b451efa4ac; wb_cusLike_6067143538=N",
+    "Host":"weibo.com",
+    "Origin":"https://weibo.com",
+    "Pragma":"no-cache",
+    "User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36",
+    "X-Requested-With":"XMLHttpRequest",
+
+}
+
+
 headers = {
     "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
     "Accept-Encoding":"gzip, deflate, sdch, br",
@@ -105,6 +122,32 @@ def phantomjs_operator(cookie,url):
     time.sleep(2)
     tingyun_driver.save_screenshot("reward.png")
     tingyun_driver.quit()
+
+def follow_someone(uid,cookie):
+    follow_url = "https://weibo.com/aj/f/followed?ajwvr=6&__rnd=%s"%(str(int(time.time())) + str(datetime.datetime.now().microsecond/1000))
+    data = {
+        "uid":uid,
+        "objectid":"",
+        "f":"1",
+        "extra":"",
+        "refer_sort":"",
+        "refer_flag":"1005050001_",
+        "location":"page_100505_home",
+        "oid":uid,
+        "wforce":"1",
+        "nogroup":"false",
+        "fnick":"",
+        "refer_lflag":"1005050005_",
+        "refer_from":"profile_headerv6",
+        "_t":"0"
+        }
+    headers_follow['Referer'] = "https://weibo.com/{uid}/fans?rightmod=1&wvr=6".format(uid=uid)
+    res = requests.post(follow_url, cookies=cookie, data=data, headers=headers_follow)
+    if res.status_code == 200:
+        if res.json()['code'] == "100000":
+            logging.info("关注返回成功")
+            return True
+    return False
 
 
 if __name__ == '__main__':
