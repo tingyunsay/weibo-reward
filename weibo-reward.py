@@ -29,18 +29,19 @@ def weibo_login(login_url,name,pwd):
     # browser = webdriver.Firefox()
     browser.get(login_url)
     time.sleep(1)
-    browser.save_screenshot("pc_first.png")
+    browser.save_screenshot("./png_save/pc_first.png")
 
     username = browser.find_element_by_name("username")
     username.clear()
     username.send_keys(user)
-    browser.save_screenshot("pc_user.png")
+    browser.save_screenshot("./png_save/pc_user.png")
 
     password = browser.find_element_by_xpath('//input[@type="password"]')
     password.clear()
     password.send_keys(pwd)
-    browser.save_screenshot("pc_pass.png")
+    browser.save_screenshot("./png_save/pc_pass.png")
     """
+    #暂时没有密码
     try:
         code = browser.find_element_by_name("captcha")
         code.clear()
@@ -62,7 +63,7 @@ def weibo_login(login_url,name,pwd):
     commit = browser.find_element_by_xpath('//input[@type="submit"]')
     commit.click()
     time.sleep(5)
-    browser.save_screenshot("fuck_ok.png")
+    browser.save_screenshot("./png_save/fuck_ok.png")
 
     cookie = {}
     #print browser.title.encode("utf-8")
@@ -86,10 +87,32 @@ headers = {
 
 }
 
+def phantomjs_operator(cookie,url):
+    #这里貌似是登录的domain（新浪网的）和微博的domain不一致，导致加cookies有点问题，算了暂时不用了，反正phantomjs也不太稳定
+    tingyun_driver = webdriver.PhantomJS(executable_path='/home/node/node_modules/phantomjs-prebuilt/bin/phantomjs')
+    tingyun_driver.set_window_size(1124, 850)
+    #tingyun_driver.maximize_window()
+    #添加cookies的操作：首先需要get一次这个页面，清除cookies之后再添加cookies，这样才能正确地以登录的身份打开这个页面
+    tingyun_driver.get(url)
+    tingyun_driver.delete_all_cookies()
+    cookie['domain'] = '.weibo.com'
+    cookie['name'] = 'name'
+    cookie['value'] = 'value'
+    cookie['path'] = '/'
+    #cookie['expiries'] = None#'%s'%str(time.time())
+    tingyun_driver.add_cookie(cookie)
+    tingyun_driver.get(url)
+    time.sleep(2)
+    tingyun_driver.save_screenshot("reward.png")
+    tingyun_driver.quit()
+
+
 if __name__ == '__main__':
-    #cookie = weibo_login("https://login.sina.com.cn/signup/signin.php?entry=sso","13520235998","helloWORLD123")
-    cookie = {u'UOR': u',my.sina.com.cn,', u'SCF': u'Arjt1ViQJ5ggZlcjsyI8cRob_lmZro1DyKYxqLAS1VKj27N4j5-5zLon00XBf4isCsS0ONxBffyzL0_jVqPzowo.', u'SUB': u'_2A253XIc1DeRhGeBO7VUQ9C3JyDSIHXVUK__9rDV_PUNbm9ANLWv1kW9NRcigXVHbNbFAkEEvyx6hTJywoheNVSha', u'SUBP': u'0033WrSXqPxfM725Ws9jqgMF55529P9D9WFFPbxvJMRTSVKvEwZI_yRF5NHD95QcehqNeKB0SKeRWs4DqcjHi--fiK.7i-8hi--Xi-iWiK.pPfvk', u'sso_info': u'v02m6alo5qztKWRk5SljpOApZCUjKWRk5ClkKSEpY6ThZ-XtbymnZalpI-TmLCNo5yxjYOMtYyzoMA=', u'ALF': u'1547315941', u'bdshare_firstime': u'1515779942461', u'ULV': u'1515779943951:1:1:1:125.33.204.128_1515779942.435680:', u'WEB2': u'bcc336fc1d15322a8c4a8bfacce34707', u'ULOGIN_IMG': u'yf-3e1cdea5c7cf2148439c3e314fccd052cd4f', u'SINAGLOBAL': u'125.33.204.128_1515779942.435673', u'Apache': u'125.33.204.128_1515779942.435680', u'U_TRS1': u'00000080.a98016c8.5a58f765.505834cb', u'U_TRS2': u'00000080.a98816c8.5a58f765.f4d00362'}
-    my_uid = "6067143538"
+    user = ""
+    pwd = ""
+    cookie = weibo_login("https://login.sina.com.cn/signup/signin.php?entry=sso",user,pwd)
+    #好多的操作都是基于在自己的账号的uid上操作，先找出来，如果多个账号的话，先登录去自己的主页找出来，再缓存下来使用
+    my_uid = "xxxx"
     for i in range(2,3):
         #print str(i)
         #url = "http://s.weibo.com/weibo/%25E5%25BE%25AE%25E5%258D%259A%25E6%258A%25BD%25E5%25A5%2596?topnav=1&wvr=6&b=1&page={page}".format(page=str(i))
@@ -111,20 +134,4 @@ if __name__ == '__main__':
                     pass
 
 
-        """
-        tingyun_driver = webdriver.PhantomJS(executable_path='/home/node/node_modules/phantomjs-prebuilt/bin/phantomjs')
-        tingyun_driver.set_window_size(1124, 850)
-        #tingyun_driver.maximize_window()
-        #tingyun_driver.get(url)
-        tingyun_driver.delete_all_cookies()
-        cookie['domain'] = '.weibo.com'
-        cookie['name'] = '13520235998'
-        cookie['value'] = 'name'
-        cookie['path'] = '/'
-        #cookie['expiries'] = None#'%s'%str(time.time())
-        tingyun_driver.add_cookie(cookie)
-        tingyun_driver.get(url)
-        time.sleep(2)
-        tingyun_driver.save_screenshot("reward.png")
-        tingyun_driver.quit()
-        """
+
