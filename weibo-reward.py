@@ -10,10 +10,43 @@ import time
 import re
 import json
 import base64
+import random
+import datetime
 import requests
+import pymysql
 from pyquery import PyQuery
 
+file_name = __file__.split('/')[-1].replace(".py","")
+logging.basicConfig(level=logging.INFO,
+                format='%(asctime)s %(filename)s [line:%(lineno)d] %(levelname)s %(message)s',
+                datefmt='%a, %d %b %Y %H:%M:%S',
+                filename='%s.log'%file_name,
+                filemode='a')
+
+#将日志打印到标准输出（设定在某个级别之上的错误）
+console = logging.StreamHandler()
+console.setLevel(logging.INFO)
+formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
+console.setFormatter(formatter)
+logging.getLogger('').addHandler(console)
+
 dcap = dict(DesiredCapabilities.PHANTOMJS)
+
+comment_list = [
+    "转转转，呀呀呀~~[二哈]","抽我抽我~~[二哈]","表白!![二哈]","反正我也中不了[二哈]","咋地啦，还不能中一次呀[二哈]","过年了，求赏点钱回家[二哈]",
+    "废话少说，转起来~~[二哈]","杰少我又at你了哦[笑而不语]","[心][心]","[doge][doge]","[坏笑][坏笑]","[喵喵][喵喵]","[笑而不语][笑而不语]",
+    "[色][色]","不抽我不理你了[哼][哼]","[爱你][爱你]","求黑幕我[阴险][阴险]","[阴险][阴险]","我就转转看[吃瓜]","求获奖[二哈][二哈]"
+]
+def db_connetionSS(ip,port,user,pwd,db):
+    conn = pymysql.connect(host=ip,
+                           port=port,
+                           user=user,
+                           password=pwd,
+                           db=db,
+                           charset='utf8'
+                           )
+    cursor = pymysql.cursors.SSCursor(conn)
+    return conn,cursor
 
 def get_verifycode():
     pass
@@ -74,23 +107,6 @@ def weibo_login(login_url,name,pwd):
     print cookie
     return cookie
 
-headers_follow = {
-    "Accept":"*/*,",
-    "Accept-Encoding":"gzip, deflate, br",
-    "Accept-Language":"zh-CN,zh;q=0.8",
-    "Cache-Control":"no-cache",
-    "Connection":"keep-alive",
-    "Content-Type":"application/x-www-form-urlencoded",
-    #"Cookie":"SINAGLOBAL=6147746042469.108.1500348166534; un=13520235998; UOR=cache.baiducontent.com,widget.weibo.com,login.sina.com.cn; YF-V5-G0=e6f12d86f222067e0079d729f0a701bc; YF-Ugrow-G0=57484c7c1ded49566c905773d5d00f82; WBtopGlobal_register_version=49306022eb5a5f0b; login_sid_t=a94d34bf7e7fc3a10174c50791838383; cross_origin_proto=SSL; _s_tentry=weibo.com; Apache=3176586107803.552.1515847518635; ULV=1515847518642:22:5:5:3176586107803.552.1515847518635:1515781973292; SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9WFFPbxvJMRTSVKvEwZI_yRF5JpX5K2hUgL.Foq7SoMpShefe0n2dJLoIp-LxK-L1K5LB-eLxKBLB.2L1K8kPfYt; ALF=1547383543; SSOLoginState=1515847544; SCF=AmYmQb5ycfnmz1Y0f1jZcZ7EQJiDARpRRPOYTnZBISYT-4-qFIRkh43bYxZwzHA1_gkS4bvjpWH9Z4sv8xy51PE.; SUB=_2A253XY_lDeRhGeBO7VUQ9C3JyDSIHXVUKuYtrDV8PUNbmtANLWbdkW9NRcigXVwBi9C3aciHbnB8Q3rzmBNUtZbD; SUHB=0ElqyoFlimP8mn; wvr=6; YF-Page-G0=59104684d5296c124160a1b451efa4ac; wb_cusLike_6067143538=N",
-    "Host":"weibo.com",
-    "Origin":"https://weibo.com",
-    "Pragma":"no-cache",
-    "User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36",
-    "X-Requested-With":"XMLHttpRequest",
-
-}
-
-
 headers = {
     "Accept":"text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8",
     "Accept-Encoding":"gzip, deflate, sdch, br",
@@ -104,24 +120,79 @@ headers = {
 
 }
 
-def phantomjs_operator(cookie,url):
-    #这里貌似是登录的domain（新浪网的）和微博的domain不一致，导致加cookies有点问题，算了暂时不用了，反正phantomjs也不太稳定
-    tingyun_driver = webdriver.PhantomJS(executable_path='/home/node/node_modules/phantomjs-prebuilt/bin/phantomjs')
-    tingyun_driver.set_window_size(1124, 850)
-    #tingyun_driver.maximize_window()
-    #添加cookies的操作：首先需要get一次这个页面，清除cookies之后再添加cookies，这样才能正确地以登录的身份打开这个页面
-    tingyun_driver.get(url)
-    tingyun_driver.delete_all_cookies()
-    cookie['domain'] = '.weibo.com'
-    cookie['name'] = 'name'
-    cookie['value'] = 'value'
-    cookie['path'] = '/'
-    #cookie['expiries'] = None#'%s'%str(time.time())
-    tingyun_driver.add_cookie(cookie)
-    tingyun_driver.get(url)
-    time.sleep(2)
-    tingyun_driver.save_screenshot("reward.png")
-    tingyun_driver.quit()
+headers_follow = {
+    "Accept":"*/*,",
+    "Accept-Encoding":"gzip, deflate, br",
+    "Accept-Language":"zh-CN,zh;q=0.8",
+    "Cache-Control":"no-cache",
+    "Connection":"keep-alive",
+    "Content-Type":"application/x-www-form-urlencoded",
+    "Host":"weibo.com",
+    "Origin":"https://weibo.com",
+    "Pragma":"no-cache",
+    "User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/57.0.2987.133 Safari/537.36",
+    "X-Requested-With":"XMLHttpRequest",
+}
+headers_repost = {
+    "Accept":"*/*",
+    "Accept-Encoding":"gzip, deflate",
+    "Accept-Language":"zh-CN,zh;q=0.9",
+    "Cache-Control":"no-cache",
+    "Connection":"keep-alive",
+    "Content-Type":"application/x-www-form-urlencoded",
+    "Host":"s.weibo.com",
+    "Origin":"http://s.weibo.com",
+    "Pragma":"no-cache",
+    "User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/63.0.3239.84 Chrome/63.0.3239.84 Safari/537.36",
+    "X-Requested-With":"XMLHttpRequest",
+}
+headers_dianzan = {
+    "Accept":"*/*",
+    "Accept-Encoding":"gzip, deflate",
+    "Accept-Language":"zh-CN,zh;q=0.9",
+    "Cache-Control":"no-cache",
+    "Connection":"keep-alive",
+    "Content-Type":"application/x-www-form-urlencoded",
+    "Host":"weibo.com",
+    "Origin":"https://weibo.com",
+    "Pragma":"no-cache",
+    "User-Agent":"Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Ubuntu Chromium/63.0.3239.84 Chrome/63.0.3239.84 Safari/537.36",
+    "X-Requested-With":"XMLHttpRequest",
+}
+
+
+def init_database(ip,port,user,password,database="weibo"):
+    conn, cursor = db_connetionSS(ip, port, user, password, database)
+    cursor.execute("show databases;")
+    databases = [x[0] for x in cursor.fetchall()]
+    if database not in databases:
+        sql_database = "create database if not exists %s"%database
+        cursor.execute(sql_database)
+        conn.commit()
+        logging.info("数据库 %s 建立完成."%database)
+    logging.info("数据库 %s 已经存在." % database)
+    #这里我们默认是走：
+    # 1.关注微博中提到的所有人（微博抽检平台已关注，会被跳过）
+    # 2.at3个好友
+    # 3.评论+转发
+    #所以，字段只需要：是否关注，是否转发+评论（这两个是放到一起的，一个接口同时做两件事情）
+    #以上两者都完成了，这样才是完成的，查库的时候只需要按照条件查询即可
+    sql_table = '''CREATE TABLE IF NOT EXISTS tingyun_weibo (
+                `mid` varchar(50) NOT NULL,
+                `content` text,
+                `is_followed` bit(1) NOT NULL,
+                `is_reposted` bit(1) NOT NULL,
+                `is_dianzan` bit(1) NOT NULL,                
+                `topic` varchar(255) DEFAULT NULL,
+                `uid` varchar(50) NOT NULL,
+                `update_date` datetime DEFAULT NULL,
+                PRIMARY KEY (`mid`),
+                KEY `uid` (`uid`)
+            ) ENGINE=InnoDB CHARSET=utf8'''
+    cursor.execute(sql_table)
+    conn.commit()
+    conn.close()
+
 
 def follow_someone(uid,cookie):
     follow_url = "https://weibo.com/aj/f/followed?ajwvr=6&__rnd=%s"%(str(int(time.time())) + str(datetime.datetime.now().microsecond/1000))
@@ -141,12 +212,89 @@ def follow_someone(uid,cookie):
         "refer_from":"profile_headerv6",
         "_t":"0"
         }
-    headers_follow['Referer'] = "https://weibo.com/{uid}/fans?rightmod=1&wvr=6".format(uid=uid)
+    #headers_follow['Referer'] = "https://weibo.com/{uid}/fans?rightmod=1&wvr=6".format(uid=uid)
+    headers_follow['Referer'] = "https://weibo.com/u/{uid}?from=myfollow_all&is_all=1&noscale_head=1".format(uid=uid)
     res = requests.post(follow_url, cookies=cookie, data=data, headers=headers_follow)
+    print res.content
     if res.status_code == 200:
         if res.json()['code'] == "100000":
             logging.info("关注返回成功")
             return True
+    logging.warning("cookies失效，无法关注他人!")
+    return False
+
+def unfollow_someone(uid,cookie):
+    unfollow_url = "https://weibo.com/aj/f/unfollow?ajwvr=6"
+    data = {
+        "uid": uid,
+        "objectid": "",
+        "f": "1",
+        "extra": "",
+        "refer_sort": "",
+        "refer_flag": "1005050001_",
+        "location": "page_100505_home",
+        "oid": uid,
+        "wforce": "1",
+        "nogroup": "false",
+        "fnick": "",
+        "refer_lflag": "",
+        "refer_from": "profile_headerv6",
+        "_t": "0"
+    }
+    headers_follow['Referer'] = "https://weibo.com/u/{uid}?from=myfollow_all&is_all=1".format(uid=uid)
+    res = requests.post(unfollow_url, cookies=cookie, data=data, headers=headers_follow)
+    if res.status_code == 200:
+        if res.json()['code'] == "100000":
+            logging.info("取消关注返回成功")
+            return True
+    logging.warning("cookies失效，无法取消关注!")
+    return False
+
+#这里传的是一个message id，即原微博的信息
+def repost_weibo(mid,cookie):
+    repost_url = "http://s.weibo.com/ajax/mblog/forward?__rnd=%s"%(str(int(time.time())) + str(datetime.datetime.now().microsecond/1000))
+    data = {
+        "appkey":"",
+        "mid":"%s"%mid,
+        "style_type":"1",
+        "reason":"%s"%random.choice(comment_list),
+        "is_comment_base":"1",
+        "location":"",
+        "_t":"0",
+    }
+    headers_repost['Referer'] = "http://s.weibo.com/weibo/%25E5%25BE%25AE%25E5%258D%259A%25E6%258A%25BD%25E5%25A5%2596?topnav=1&wvr=6"
+    res = requests.post(repost_url, cookies=cookie, data=data, headers=headers_repost)
+    if res.status_code == 200:
+        if res.json()['code'] == "100000":
+            logging.info("抓发微博返回成功")
+            return True
+    logging.warning("cookies失效，无法转发!")
+    return False
+
+#添加一个点赞操作，如果记录失败，稍后重新去点赞，直到三个状态位全部完成
+def dianzan_weibo(mid,cookie,uid):
+    #这里加个https，我日...
+    dianzan_url = "https://weibo.com/aj/v6/like/add?ajwvr=6&__rnd=%s"%(str(int(time.time())) + str(datetime.datetime.now().microsecond/1000))
+    data = {
+        "location":"page_100505_home",
+        "version":"mini",
+        "qid":"heart",
+        "mid":mid,
+        #"loc":"profile",
+        #"cuslike":"1",
+        "_t":"0",
+    }
+    #headers_dianzan['Referer'] = "https://weibo.com/u/{uid}?refer_flag=1005055010_&is_hot=1&noscale_head=1".format(uid=uid)
+    #headers_dianzan['Cookie'] = json.dumps(cookie)
+    headers_dianzan['Referer'] = "https://weibo.com/u/{uid}?profile_ftype=1&is_all=1".format(uid=uid)
+    #headers_dianzan['Referer'] = "http://s.weibo.com/weibo/%25E5%25BE%25AE%25E5%258D%259A%25E6%258A%25BD%25E5%25A5%2596?topnav=1&wvr=6&b=1"
+    res = requests.post(dianzan_url, cookies=cookie, data=data, headers=headers_dianzan)
+    print res.content
+    if res.status_code == 200:
+        if res.json()['code'] == "100000":
+            logging.info("点赞微博返回成功")
+            return True
+    logging.warning("cookies失效，无法点赞!")
     return False
 
 
