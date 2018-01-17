@@ -215,14 +215,13 @@ def follow_someone(uid,cookie):
     #headers_follow['Referer'] = "https://weibo.com/{uid}/fans?rightmod=1&wvr=6".format(uid=uid)
     headers_follow['Referer'] = "https://weibo.com/u/{uid}?from=myfollow_all&is_all=1&noscale_head=1".format(uid=uid)
     res = requests.post(follow_url, cookies=cookie, data=data, headers=headers_follow)
-    print res.content
+    #print res.content
     if res.status_code == 200:
         if res.json()['code'] == "100000":
             logging.info("关注返回成功")
             return True
     logging.warning("cookies失效，无法关注他人!")
     return False
-
 def unfollow_someone(uid,cookie):
     unfollow_url = "https://weibo.com/aj/f/unfollow?ajwvr=6"
     data = {
@@ -251,13 +250,14 @@ def unfollow_someone(uid,cookie):
     return False
 
 #这里传的是一个message id，即原微博的信息
-def repost_weibo(mid,cookie):
+def repost_weibo(mid,cookie,topic):
     repost_url = "http://s.weibo.com/ajax/mblog/forward?__rnd=%s"%(str(int(time.time())) + str(datetime.datetime.now().microsecond/1000))
+    at_person = ["@白菜君王","@天台球场Killer24","@白菜沙僧"]
     data = {
         "appkey":"",
         "mid":"%s"%mid,
         "style_type":"1",
-        "reason":"%s"%random.choice(comment_list),
+        "reason":"%s"%random.choice(comment_list)+" ".join(topic)+" ".join(at_person),
         "is_comment_base":"1",
         "location":"",
         "_t":"0",
@@ -266,7 +266,7 @@ def repost_weibo(mid,cookie):
     res = requests.post(repost_url, cookies=cookie, data=data, headers=headers_repost)
     if res.status_code == 200:
         if res.json()['code'] == "100000":
-            logging.info("抓发微博返回成功")
+            logging.info("转发微博返回成功")
             return True
     logging.warning("cookies失效，无法转发!")
     return False
@@ -304,7 +304,7 @@ if __name__ == '__main__':
     cookie = weibo_login("https://login.sina.com.cn/signup/signin.php?entry=sso",user,pwd)
     #好多的操作都是基于在自己的账号的uid上操作，先找出来，如果多个账号的话，先登录去自己的主页找出来，再缓存下来使用
     my_uid = "xxxx"
-    for i in range(2,3):
+    for i in range(3,4):
         #print str(i)
         #url = "http://s.weibo.com/weibo/%25E5%25BE%25AE%25E5%258D%259A%25E6%258A%25BD%25E5%25A5%2596?topnav=1&wvr=6&b=1&page={page}".format(page=str(i))
         reward_url = "https://m.weibo.cn/api/container/getIndex?type=all&queryVal=%E6%8A%BD%E5%A5%96&featurecode=20000320&luicode=10000011&lfid=106003type%3D1&title=%E6%8A%BD%E5%A5%96&containerid=100103type%3D1%26q%3D%E6%8A%BD%E5%A5%96&page={page}".format(page=i)
@@ -316,10 +316,45 @@ if __name__ == '__main__':
                         "uid" : i.get('mblog').get('user').get('id'),
                         "name" : i.get('mblog').get('user').get('screen_name'),
                         "text" : i.get('mblog').get('text'),
+                        "mid" : i.get('mblog').get('mid'),
+                        "url" : i.get('scheme'),
+                        "topic": re.findall("#.*?#",i.get('mblog').get('text')),
                     }
-                    #这里需要将微博中带有@开头的人都关注上，并且转发的时候带上话题，随机加上一些文字或者图片
+                    logging.info("开始关注发微博的人....")
+                    follow_someone(info['uid'], cookie)
+                    logging.info("关注发博人: %s 成功" % info['name'])
+
+                    #这里需要
+                    # 1.将微博中带有@开头的人都关注上
+                    # 2.并且转发的时候带上话题，随机加上一些文字或者图片
+                    # 3.at三个朋友（一般不会超过三个），yj(319718883)，lh(3926392913),白菜君王(5163218557)
+                    #这边只能at用户的名字，然后微博内部自动根据名字的唯一去跳转
+                    """
+                    uid_list = [319718883,3926392913,5163218557]
                     #明天搞起来，耶耶耶~~
-                    print info['text']
+                    try:
+                        repost_content = re.search("(?<=\#).+?(?=\#)",info['text']).group()
+                    except Exception,e:
+                        repost_content = random.choice(comment_list)
+                    """
+                    text_utf8 = info['text'].encode('utf8')
+                    if re.findall("微博抽奖平台",text_utf8):
+                        logging.info("开始转发一条微博-----------")
+                        for j in re.findall("(?<=\@).*?(?=<)",text_utf8):
+                            if re.search("微博抽奖平台",j):
+                                continue
+                            else:
+                                logging.info("开始关注微博中提到的用户 : %s"%j)
+                                person_page = "https://m.weibo.cn/n/%s"%j
+                                #print person_page
+                                person_uid = re.findall("\d+$",requests.get(person_page).url)[0]
+                                #print person_uid
+                                #找出了uid，关注它
+                                follow_someone(person_uid,cookie)
+                                logging.info("关注用户 %s 成功"%j)
+                        repost_weibo(mid=info['mid'],cookie=cookie,topic=info['topic'])
+                    #for i in PyQuery(info['text'])('a').items():
+                    #    print i.attr.href
                 except Exception,e:
                     print e
                     pass
