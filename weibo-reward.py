@@ -13,6 +13,8 @@ import base64
 import random
 import datetime
 import requests
+from mysql_connect import *
+
 import pymysql
 from pyquery import PyQuery
 
@@ -37,17 +39,8 @@ comment_list = [
     "废话少说，转起来~~[二哈]","杰少我又at你了哦[笑而不语]","[心][心]","[doge][doge]","[坏笑][坏笑]","[喵喵][喵喵]","[笑而不语][笑而不语]",
     "[色][色]","不抽我不理你了[哼][哼]","[爱你][爱你]","求黑幕我[阴险][阴险]","[阴险][阴险]","我就转转看[吃瓜]","求获奖[二哈][二哈]"
 ]
-def db_connetionSS(ip,port,user,pwd,db):
-    conn = pymysql.connect(host=ip,
-                           port=port,
-                           user=user,
-                           password=pwd,
-                           db=db,
-                           charset='utf8'
-                           )
-    cursor = pymysql.cursors.SSCursor(conn)
-    return conn,cursor
 
+#暂时没有使用到验证码，若需要可接入打码平台
 def get_verifycode():
     pass
 
@@ -160,40 +153,7 @@ headers_dianzan = {
     "X-Requested-With":"XMLHttpRequest",
 }
 
-
-def init_database(ip,port,user,password,database="weibo"):
-    conn, cursor = db_connetionSS(ip, port, user, password, database)
-    cursor.execute("show databases;")
-    databases = [x[0] for x in cursor.fetchall()]
-    if database not in databases:
-        sql_database = "create database if not exists %s"%database
-        cursor.execute(sql_database)
-        conn.commit()
-        logging.info("数据库 %s 建立完成."%database)
-    logging.info("数据库 %s 已经存在." % database)
-    #这里我们默认是走：
-    # 1.关注微博中提到的所有人（微博抽检平台已关注，会被跳过）
-    # 2.at3个好友
-    # 3.评论+转发
-    #所以，字段只需要：是否关注，是否转发+评论（这两个是放到一起的，一个接口同时做两件事情）
-    #以上两者都完成了，这样才是完成的，查库的时候只需要按照条件查询即可
-    sql_table = '''CREATE TABLE IF NOT EXISTS tingyun_weibo (
-                `mid` varchar(50) NOT NULL,
-                `content` text,
-                `is_followed` bit(1) NOT NULL,
-                `is_reposted` bit(1) NOT NULL,
-                `is_dianzan` bit(1) NOT NULL,                
-                `topic` varchar(255) DEFAULT NULL,
-                `uid` varchar(50) NOT NULL,
-                `update_date` datetime DEFAULT NULL,
-                PRIMARY KEY (`mid`),
-                KEY `uid` (`uid`)
-            ) ENGINE=InnoDB CHARSET=utf8'''
-    cursor.execute(sql_table)
-    conn.commit()
-    conn.close()
-
-
+#关注他人，uid
 def follow_someone(uid,cookie):
     follow_url = "https://weibo.com/aj/f/followed?ajwvr=6&__rnd=%s"%(str(int(time.time())) + str(datetime.datetime.now().microsecond/1000))
     data = {
@@ -222,6 +182,8 @@ def follow_someone(uid,cookie):
             return True
     logging.warning("cookies失效，无法关注他人!")
     return False
+
+#取关这个人，uid
 def unfollow_someone(uid,cookie):
     unfollow_url = "https://weibo.com/aj/f/unfollow?ajwvr=6"
     data = {
@@ -268,7 +230,7 @@ def repost_weibo(mid,cookie,topic):
         if res.json()['code'] == "100000":
             logging.info("转发微博返回成功")
             return True
-    logging.warning("cookies失效，无法转发!")
+    logging.warning("cookies失效，无法转发! 该微博mid为: %s"%mid)
     return False
 
 #添加一个点赞操作，如果记录失败，稍后重新去点赞，直到三个状态位全部完成
@@ -289,7 +251,7 @@ def dianzan_weibo(mid,cookie,uid):
     headers_dianzan['Referer'] = "https://weibo.com/u/{uid}?profile_ftype=1&is_all=1".format(uid=uid)
     #headers_dianzan['Referer'] = "http://s.weibo.com/weibo/%25E5%25BE%25AE%25E5%258D%259A%25E6%258A%25BD%25E5%25A5%2596?topnav=1&wvr=6&b=1"
     res = requests.post(dianzan_url, cookies=cookie, data=data, headers=headers_dianzan)
-    print res.content
+    #print res.content
     if res.status_code == 200:
         if res.json()['code'] == "100000":
             logging.info("点赞微博返回成功")
@@ -299,65 +261,77 @@ def dianzan_weibo(mid,cookie,uid):
 
 
 if __name__ == '__main__':
-    user = ""
-    pwd = ""
-    cookie = weibo_login("https://login.sina.com.cn/signup/signin.php?entry=sso",user,pwd)
-    #好多的操作都是基于在自己的账号的uid上操作，先找出来，如果多个账号的话，先登录去自己的主页找出来，再缓存下来使用
-    my_uid = "xxxx"
-    for i in range(3,4):
+    init_database()
+    cookie = weibo_login("https://login.sina.com.cn/signup/signin.php?entry=sso","user","pwd")
+    #cookie = {u'UOR': u',my.sina.com.cn,', u'SCF': u'Arjt1ViQJ5ggZlcjsyI8cRob_lmZro1DyKYxqLAS1VKjyFJfW_4KKhFGvB-GLGjw8FGxiEow6XzVYwKhgMq7JoM.', u'SUB': u'_2A253W9FXDeRhGeBO7VUQ9C3JyDSIHXVUEUWfrDV_PUNbm9ANLWbjkW9NRcigXaHPnnOB6LVh5aVkpGQ2AviMP38l', u'SUBP': u'0033WrSXqPxfM725Ws9jqgMF55529P9D9WFFPbxvJMRTSVKvEwZI_yRF5NHD95QcehqNeKB0SKeRWs4DqcjHi--fiK.7i-8hi--Xi-iWiK.pPfvk', u'sso_info': u'v02m6alo5qztKWRk5SljpOApZCUjKWRk5ClkKSEpY6ThZ-XtbymnZalpI-TmLCNo5yxjYOMtYyzoMA=', u'ALF': u'1547752516', u'bdshare_firstime': u'1516216517855', u'ULV': u'1516216519120:1:1:1:125.33.204.128_1516216517.743241:', u'WEB2': u'bd9116f57eb1923b3be6331d82475d70', u'ULOGIN_IMG': u'aliyun-ea326361f0d97ccde588c92f21493ff1ce79', u'SINAGLOBAL': u'125.33.204.128_1516216517.743236', u'Apache': u'125.33.204.128_1516216517.743241', u'U_TRS1': u'00000080.7c372c85.5a5fa0c5.42226278', u'U_TRS2': u'00000080.7c3f2c85.5a5fa0c5.1506b0d8'}
+    #exit()
+    for i in range(2,3):
         #print str(i)
         #url = "http://s.weibo.com/weibo/%25E5%25BE%25AE%25E5%258D%259A%25E6%258A%25BD%25E5%25A5%2596?topnav=1&wvr=6&b=1&page={page}".format(page=str(i))
         reward_url = "https://m.weibo.cn/api/container/getIndex?type=all&queryVal=%E6%8A%BD%E5%A5%96&featurecode=20000320&luicode=10000011&lfid=106003type%3D1&title=%E6%8A%BD%E5%A5%96&containerid=100103type%3D1%26q%3D%E6%8A%BD%E5%A5%96&page={page}".format(page=i)
         res = requests.get(reward_url,headers=headers).json()#,cookies=cookie)     #这里不需要登录
         if res['ok'] == 1:
             for i in res['data']['cards'][0]['card_group']:
-                try:
-                    info = {
-                        "uid" : i.get('mblog').get('user').get('id'),
-                        "name" : i.get('mblog').get('user').get('screen_name'),
-                        "text" : i.get('mblog').get('text'),
-                        "mid" : i.get('mblog').get('mid'),
-                        "url" : i.get('scheme'),
-                        "topic": re.findall("#.*?#",i.get('mblog').get('text')),
-                    }
-                    logging.info("开始关注发微博的人....")
-                    follow_someone(info['uid'], cookie)
-                    logging.info("关注发博人: %s 成功" % info['name'])
-
-                    #这里需要
-                    # 1.将微博中带有@开头的人都关注上
-                    # 2.并且转发的时候带上话题，随机加上一些文字或者图片
-                    # 3.at三个朋友（一般不会超过三个），yj(319718883)，lh(3926392913),白菜君王(5163218557)
-                    #这边只能at用户的名字，然后微博内部自动根据名字的唯一去跳转
-                    """
-                    uid_list = [319718883,3926392913,5163218557]
-                    #明天搞起来，耶耶耶~~
+                info = {
+                    "mid": i.get('mblog').get('mid'),
+                    "name": i.get('mblog').get('user').get('screen_name'),
+                    "content": PyQuery(i.get('mblog').get('text')).text().replace("'", "\\'"),
+                    "topic": json.dumps([str(x).replace("'","\\'") for x in re.findall("#.*?#", i.get('mblog').get('text'))]),
+                    "uid": i.get('mblog').get('user').get('id'),
+                    "url": i.get('scheme'),
+                }
+                #print info['topic']
+                #continue
+                if select_exists(info['mid']):
+                    logging.warning("mid {%s} 已经存在，丢弃"%info['mid'])
+                else:
                     try:
-                        repost_content = re.search("(?<=\#).+?(?=\#)",info['text']).group()
+                        follow_flag = True
+                        logging.info("开始关注发微博的人....")
+                        try:
+                            follow_someone(info['uid'], cookie)
+                            logging.info("关注发博人: {%s} 成功" % info['name'])
+                        except Exception,e:
+                            follow_flag = False
+                            logging.warning("关注发博人: {%s} 失败，原因如下:" % info['name'])
+                            logging.warning(e)
+                            pass
+                        #这里需要
+                        # 1.将微博中带有@开头的人都关注上
+                        # 2.并且转发的时候带上话题，随机加上一些文字或者图片
+                        # 3.at三个朋友（一般不会超过三个），yj(319718)，lh(392639),白菜君王(5163218557)
+                        #这边只能at用户的名字，然后微博内部自动根据名字的唯一去跳转
+                        text_utf8 = info['content'].encode('utf8')
+                        if re.findall("微博抽奖平台",text_utf8):
+                            logging.info("开始操作一条微博-----------")
+                            #设定follow_flag为True，只要下面中关注出现问题即将其置为False（有一个失败即是全部失败）
+                            for j in re.findall("(?<=\@).*?(?=<)",text_utf8):
+                                if re.search("微博抽奖平台",j):
+                                    continue
+                                else:
+                                    try:
+                                        logging.info("开始关注微博中提到的用户 : {%s}"%j)
+                                        person_page = "https://m.weibo.cn/n/%s"%j
+                                        #print person_page
+                                        person_uid = re.findall("\d+$",requests.get(person_page).url)[0]
+                                        #print person_uid
+                                        #找出了uid，关注它
+                                        follow_someone(person_uid,cookie)
+                                        logging.info("关注用户 {%s} 成功"%j)
+                                    except Exception,e:
+                                        follow_flag = False
+                                        logging.warning(e)
+                                        logging.warning("关注用户 {%s} 出现问题"%j)
+                        #只有到这里才全部关注成功
+                        info['is_followed'] = 1 if follow_flag else 0
+
+                        dianzan_flag = dianzan_weibo(mid=info['mid'],cookie=cookie,uid=info['uid'])
+                        info['is_dianzan'] = 1 if dianzan_flag else 0
+
+                        repost_flag = repost_weibo(mid=info['mid'],cookie=cookie,topic=json.loads(info['topic']))
+                        info['is_reposted'] = 1 if repost_flag else 0
+                        insert_mysql(info)
                     except Exception,e:
-                        repost_content = random.choice(comment_list)
-                    """
-                    text_utf8 = info['text'].encode('utf8')
-                    if re.findall("微博抽奖平台",text_utf8):
-                        logging.info("开始转发一条微博-----------")
-                        for j in re.findall("(?<=\@).*?(?=<)",text_utf8):
-                            if re.search("微博抽奖平台",j):
-                                continue
-                            else:
-                                logging.info("开始关注微博中提到的用户 : %s"%j)
-                                person_page = "https://m.weibo.cn/n/%s"%j
-                                #print person_page
-                                person_uid = re.findall("\d+$",requests.get(person_page).url)[0]
-                                #print person_uid
-                                #找出了uid，关注它
-                                follow_someone(person_uid,cookie)
-                                logging.info("关注用户 %s 成功"%j)
-                        repost_weibo(mid=info['mid'],cookie=cookie,topic=info['topic'])
-                    #for i in PyQuery(info['text'])('a').items():
-                    #    print i.attr.href
-                except Exception,e:
-                    print e
-                    pass
-
-
+                        print e
+                        pass
 
